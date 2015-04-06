@@ -1,0 +1,582 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="VB" Description="Generates a very simple business object." %>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" Category="Context" Description="Table that the object is based on." %>
+<%@ Property Name="SingleFileMode" Type="System.Boolean" Category="Options" Default="False" Description="Generate content for a complete cs file instead of just a class." %>
+<%@ Property Name="ClassNamespace" Type="System.String" Category="Options" Default="VSIntergationSample" Description="Namespace your class is in. Only used if SingleFileMode is true!" %>
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Data" %>
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Map Name="SqlCSharp" Src="Sql-CSharp" Description="System to C# Type Map" %>
+<%@ Map Name="DbDataReader" Src="DbType-DataReaderMethod" Description="DbType to DataReader Method Map" %>
+<%@ Map Name="SqlNativeSqlDb" Src="SqlNativeType-SqlDbType" Description="SqlNativeType to SqlDbType Map" %>
+<%@ Map Name="DbTypeCSharp" Src="DbType-CSharp" Description="DbType to CSharp Map" %>
+
+Imports System.Data.Common
+Imports Entidades
+
+Public Class <% =GetClassName(SourceTable) %>DA
+
+    Dim _Base As New BaseSql()
+    
+#Region "Otras Funciones"
+
+
+
+#End Region
+
+#Region "Fill"
+  Public Function ExecuteQueryDT(ByVal strQuery As String, Optional objTransaction As IDbTransaction = Nothing) As DataTable
+        Dim dtResul As DataTable = Nothing
+
+        Try
+
+            If IsNothing(objTransaction) Then
+                dtResul = _Base.ExecuteQueryDT(strQuery)
+
+            Else
+                dtResul = _Base.ExecuteQueryDT(strQuery, objTransaction)
+            End If
+
+        Catch ex As Exception
+            Throw ex
+        End Try
+        Return dtResul
+
+    End Function
+
+    Public Function ExecuteScalar(strQuery As String, Optional objTransaction As IDbTransaction = Nothing) As Object
+        Dim obj As New Object
+
+        Try
+
+            If IsNothing(objTransaction) Then
+                _Base.ExecuteScalar(strQuery)
+
+            Else
+                _Base.ExecuteScalar(strQuery, objTransaction)
+            End If
+        Catch ex As Exception
+            Throw ex
+        End Try
+        Return obj
+
+    End Function
+
+#End Region
+
+#Region "Retrive"
+
+    Public Function Retrieve(<%=GetPrimaryKeyTypeName(SourceTable) %> As <%=SourceTable.PrimaryKey.MemberColumns[0].DataType %>, Optional objTransaction As IDbTransaction = Nothing) As <%= GetClassName(SourceTable) %>
+        Dim strQuery As [String] = String.Format("SELECT * FROM <%= GetTableOwner() %>[<%= SourceTable.Name %>] WHERE <%= SourceTable.PrimaryKey.MemberColumns[0].Name %> = {0}", <%=GetPrimaryKeyTypeName(SourceTable) %>)
+        Dim _<% =GetClassName(SourceTable) %> As New <% =GetClassName(SourceTable) %>()
+        Dim dr As IDataReader = Nothing
+        Try
+
+            If IsNothing(objTransaction) Then
+
+                dr = _Base.ExecuteReader(strQuery)
+            Else
+                dr = _Base.ExecuteReader(strQuery, objTransaction)
+            End If
+
+            If dr.Read() Then
+                _<%= GetClassName(SourceTable) %>.<% =GetPrimaryKeyName(SourceTable, 1) %> = IIf(IsDBNull(dr("<% =GetPrimaryKeyName(SourceTable, 1) %>")), Nothing, dr("<% =GetPrimaryKeyName(SourceTable, 1) %>"))
+                <% for (int i = 0; i < SourceTable.NonPrimaryKeyColumns.Count; i++) { %>
+                    _<%= GetClassName(SourceTable) %>.<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %> = IIf(IsDBNull(dr("<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>")), Nothing, dr("<% = GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>"))
+                    <% } %>
+                Return _<%= GetClassName(SourceTable) %>
+                Else
+                    Return _<%= GetClassName(SourceTable) %>
+
+            End If
+
+        Catch ex As Exception
+
+            Throw ex
+
+        Finally
+            If Not dr Is Nothing Then
+                If Not dr.IsClosed Then
+                    If IsNothing(objTransaction) Then
+                        dr.Close()
+
+                    Else
+                        dr.Dispose()
+                    End If
+
+                End If
+                dr = Nothing
+            End If
+        End Try
+              
+    End Function
+
+    Public Function RetrieveByFilter(strFilter As String, Optional objTransaction As IDbTransaction = Nothing) As <%= GetClassName(SourceTable) %>
+        Dim strQuery As String = String.Format("SELECT * FROM <%= GetTableOwner() %>[<%= SourceTable.Name %>] WHERE {0}", strFilter)
+        Dim _<% =GetClassName(SourceTable) %> As New <% =GetClassName(SourceTable) %>()
+        Dim dr As IDataReader = Nothing
+        Try
+
+            If IsNothing(objTransaction) Then
+
+                dr = _Base.ExecuteReader(strQuery)
+            Else
+                dr = _Base.ExecuteReader(strQuery, objTransaction)
+            End If
+
+            If dr.Read() Then
+                _<%= GetClassName(SourceTable) %>.<% =GetPrimaryKeyName(SourceTable, 1) %> = IIf(IsDBNull(dr("<% =GetPrimaryKeyName(SourceTable, 1) %>")), Nothing, dr("<% =GetPrimaryKeyName(SourceTable, 1) %>"))
+                <% for (int i = 0; i < SourceTable.NonPrimaryKeyColumns.Count; i++) { %>
+                    _<%= GetClassName(SourceTable) %>.<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %> = IIf(IsDBNull(dr("<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>")), Nothing, dr("<% = GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>"))
+                    <% } %>
+                Return _<%= GetClassName(SourceTable) %>
+                Else
+                    Return _<%= GetClassName(SourceTable) %>
+
+            End If
+
+        Catch ex As Exception
+
+            Throw ex
+
+        Finally
+            If Not dr Is Nothing Then
+                If Not dr.IsClosed Then
+                    If IsNothing(objTransaction) Then
+                        dr.Close()
+
+                    Else
+                        dr.Dispose()
+                    End If
+
+                End If
+                dr = Nothing
+            End If
+        End Try
+    End Function
+
+    Public Function RetrieveDT(Optional strFilter As String = "", Optional strOrderBy As String = "", Optional strFields As String = "*", Optional objTransaction As IDbTransaction = Nothing) As DataTable
+
+        If strFilter <> "" Then
+            strFilter = "WHERE " & Convert.ToString(strFilter)
+        End If
+
+        If strOrderBy <> "" Then
+            strOrderBy = "Order By " & Convert.ToString(strOrderBy)
+        End If
+
+        Dim strQuery As String = String.Format("SELECT {0} FROM <%= GetTableOwner() %>[<%= SourceTable.Name %>] {1} {2}", strFields, strFilter, strOrderBy)
+        Dim dtResul As DataTable = Nothing
+        
+        Try
+            If IsNothing(objTransaction) Then
+                dtResul = _Base.ExecuteQueryDT(strQuery)
+
+            Else
+                dtResul = _Base.ExecuteQueryDT(strQuery, objTransaction)
+            End If
+
+        Catch ex As Exception
+            Throw ex
+        End Try
+
+        Return dtResul
+              
+    End Function
+
+#End Region
+
+#Region "Insert"
+
+    Public Function Insert(<%= GetClassName(SourceTable) %> As <%= GetClassName(SourceTable) %>, Optional objTransaction As IDbTransaction = Nothing) As <%= GetClassName(SourceTable) %>
+        Dim cmd As DbCommand
+        Try
+            
+            With _Base
+                    cmd = .GetStoredProcCommand("<%= GetTableOwner() %>[UspInsert<%= SourceTable.Name %>]")
+                    .AddOutParameter(cmd, "@<% =GetPrimaryKeyName(SourceTable, 1) %>",DbType.<% =SourceTable.PrimaryKey.MemberColumns[0].DataType.ToString() %>)
+                    <% for (int i = 0; i < SourceTable.NonPrimaryKeyColumns.Count; i++) { %>
+                    .AddInParameter(cmd, "@<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>", DbType.<% =SourceTable.NonPrimaryKeyColumns[i].DataType.ToString() %>, IIf(IsNothing(<%= GetClassName(SourceTable) %>.<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>), DBNull.Value, <%= GetClassName(SourceTable) %>.<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>)) 
+                    <% } %>
+           
+            If IsNothing(objTransaction) Then
+                    .ExecuteStoreProcedure(cmd)
+            Else
+                    .ExecuteStoreProcedure(cmd, objTransaction)
+            End If
+                        
+
+            <%= GetClassName(SourceTable) %>.<% =GetPrimaryKeyName(SourceTable, 1) %> = .GetParameterValue(cmd, "@<% =GetPrimaryKeyName(SourceTable, 1) %>")
+            
+            End With
+
+        Catch ex As Exception
+
+            Throw ex
+        End Try
+
+        Return <%= GetClassName(SourceTable) %>
+
+    End Function
+
+#End Region
+   
+#Region "Update"
+
+    Public Function Update(<%= GetClassName(SourceTable) %> As <%= GetClassName(SourceTable) %>, Optional objTransaction As IDbTransaction = Nothing) As <%= GetClassName(SourceTable) %>
+         Dim cmd As DbCommand
+        Try
+            
+            With _Base
+                    cmd = .GetStoredProcCommand("<%= GetTableOwner() %>[UspUpdate<%= SourceTable.Name %>]")
+                    .AddInParameter(cmd, "@<% =GetPrimaryKeyName(SourceTable, 1) %>",DbType.<% =SourceTable.PrimaryKey.MemberColumns[0].DataType.ToString() %>, <%= GetClassName(SourceTable) %>.<% =GetPrimaryKeyName(SourceTable, 1) %>)
+                    <% for (int i = 0; i < SourceTable.NonPrimaryKeyColumns.Count; i++) { %>
+                    .AddInParameter(cmd, "@<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>", DbType.<% =SourceTable.NonPrimaryKeyColumns[i].DataType.ToString() %>, IIf(IsNothing(<%= GetClassName(SourceTable) %>.<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>), DBNull.Value, <%= GetClassName(SourceTable) %>.<%= GetPropertyName(SourceTable.NonPrimaryKeyColumns[i]) %>)) 
+                    <% } %>
+           
+            If IsNothing(objTransaction) Then
+                    .ExecuteStoreProcedure(cmd)
+            Else
+                    .ExecuteStoreProcedure(cmd, objTransaction)
+            End If
+            
+            End With
+
+        Catch ex As Exception
+
+            Throw ex
+        End Try
+
+        Return <%= GetClassName(SourceTable) %>
+       
+    End Function
+
+#End Region
+
+#Region "Delete"
+
+    Public Function Delete(intIdUsuario As Integer, Optional objTransaction As IDbTransaction = Nothing) As Boolean
+      
+        Dim strQuery As String = String.Format("DELETE FROM <%= GetTableOwner() %>[<%= SourceTable.Name %>] WHERE <%= SourceTable.PrimaryKey.MemberColumns[0].Name %> = {0}", intIdUsuario)
+        Try
+
+            If IsNothing(objTransaction) Then
+                _Base.ExecuteNonQuery(strQuery)
+            Else
+                _Base.ExecuteNonQuery(strQuery, objTransaction)
+            End If
+
+            Return True
+
+        Catch ex As Exception
+			 Throw ex
+			 Return False
+        End Try
+    End Function
+
+    Public Function DeleteByFilter(strFilter As String, Optional objTransaction As IDbTransaction = Nothing) As Boolean
+        Dim strQuery As String = String.Format("DELETE FROM <%= GetTableOwner() %>[<%= SourceTable.Name %>] WHERE {0}", strFilter)
+        
+         Try
+            If IsNothing(objTransaction) Then
+                _Base.ExecuteNonQuery(strQuery)
+            Else
+                _Base.ExecuteNonQuery(strQuery, objTransaction)
+            End If
+
+            Return True
+        Catch ex As Exception
+            Throw ex
+			Return False
+            
+        End Try
+
+    End Function
+
+#End Region
+
+End Class
+
+
+<% if(!this.SingleFileMode) { %>
+
+<% } %>
+
+<script runat="template">
+
+public string GetTableOwner()
+{
+	return GetTableOwner(true);
+}
+
+public string GetTableOwner(bool includeDot)
+{
+	if (SourceTable.Owner.Length > 0)
+	{
+        
+		if (includeDot)
+		{
+			return "[" + SourceTable.Owner + "].";
+		}
+		else
+		{
+			return "[" + SourceTable.Owner + "]";
+		}
+	}
+	else
+	{
+		return "";
+	}
+}
+
+
+public string GetMemberVariableDeclarationStatement(ColumnSchema column)
+{
+	return GetMemberVariableDeclarationStatement("private", column);
+}
+
+public string GetMemberVariableDeclarationStatement(string protectionLevel, ColumnSchema column)
+{
+	string statement = protectionLevel + " ";
+	statement += GetCSharpVariableType(column) + " " + GetMemberVariableName(column);
+	
+	string defaultValue = GetMemberVariableDefaultValue(column);
+	if (defaultValue != "")
+	{
+		statement += " = " + defaultValue;
+	}
+	
+	statement += ";";
+	
+	return statement;
+}
+
+public string GetReaderAssignmentStatement(ColumnSchema column, int index)
+{
+	string statement = "if (!reader.IsDBNull(" + index.ToString() + ")) ";
+	statement += GetMemberVariableName(column) + " = ";
+	
+	if (column.Name.EndsWith("TypeCode")) statement += "(" + column.Name + ")";
+	
+	statement += "reader." + GetReaderMethod(column) + "(" + index.ToString() + ");";
+	
+	return statement;
+}
+
+public string GetCamelCaseName(string value)
+{
+	return value.Substring(0, 1).ToLower() + value.Substring(1);
+}
+
+public string GetMemberVariableName(ColumnSchema column)
+{
+	string propertyName = GetPropertyName(column);
+	string memberVariableName = "_" + GetCamelCaseName(propertyName);
+	   
+	return memberVariableName;
+}
+
+public string GetPropertyName(ColumnSchema column)
+{
+	string propertyName = column.Name;
+	
+	if (propertyName == column.Table.Name + "Name") return "Name";
+	if (propertyName == column.Table.Name + "Description") return "Description";
+	
+	if (propertyName.EndsWith("TypeCode")) propertyName = propertyName.Substring(0, propertyName.Length - 4);
+	
+	return propertyName;
+}
+		
+public string GetMemberVariableDefaultValue(ColumnSchema column)
+{
+	switch (column.DataType)
+	{
+		case DbType.Guid:
+		{
+			return "null";
+		}
+		case DbType.AnsiString:
+		case DbType.AnsiStringFixedLength:
+		case DbType.String:
+		case DbType.StringFixedLength:
+		{
+			return "null";
+		}
+        case DbType.Int32:
+         {
+			return "null";
+		}   
+		default:
+		{
+			return "";
+		}
+	}
+}
+
+public string GetCSharpVariableType(ColumnSchema column)
+{
+	
+   if (column.Name.EndsWith("TypeCode")) return column.Name;
+    if(DbTypeCSharp[column.DataType.ToString()] != "string") return "Nullable<" + DbTypeCSharp[column.DataType.ToString()] + ">";
+	return DbTypeCSharp[column.DataType.ToString()];	
+}
+
+public string GetReaderMethod(ColumnSchema column)
+{
+	return DbDataReader[column.DataType.ToString()];
+}
+
+public string GetClassName(TableSchema table)
+{
+	if (table.Name.EndsWith("s"))
+	{
+		return table.Name.Substring(0, table.Name.Length - 1);
+	}
+	else
+	{
+		return table.Name;
+	}
+}
+
+public string GetSqlDbType(ColumnSchema column)
+{
+	return SqlNativeSqlDb[column.NativeType.ToString()];
+}
+
+public string GetPrimaryKeyType(TableSchema table)
+{
+	if (table.PrimaryKey != null)
+	{
+		if (table.PrimaryKey.MemberColumns.Count == 1)
+		{
+            ColumnSchema column = table.PrimaryKey.MemberColumns[0];
+			return  DbTypeCSharp[column.DataType.ToString()];
+		}
+		else
+		{
+			throw new ApplicationException("This template will not work on primary keys with more than one member column.");
+		}
+	}
+	else
+	{
+		throw new ApplicationException("This template will only work on tables with a primary key.");
+	}
+}
+
+
+public string GetPrimaryKeyName(TableSchema table, int variable = 0)
+{
+	if (table.PrimaryKey != null)
+	{
+		if (table.PrimaryKey.MemberColumns.Count == 1)
+		{
+            ColumnSchema column = table.PrimaryKey.MemberColumns[0];
+			
+            if (variable != 0)
+            {
+                return  column.Name;
+            }
+                
+            return  GetMemberVariableName(column);
+		}
+		else
+		{
+			throw new ApplicationException("This template will not work on primary keys with more than one member column.");
+		}
+	}
+	else
+	{
+		throw new ApplicationException("This template will only work on tables with a primary key.");
+	}
+}
+
+public string GetPrimaryKeyTypeName(TableSchema table)
+{
+    if (table.PrimaryKey != null)
+	{
+		if (table.PrimaryKey.MemberColumns.Count == 1)
+		{
+            ColumnSchema column = table.PrimaryKey.MemberColumns[0];
+			return DbTypeCSharp[column.DataType.ToString()] + column.Name;
+		}
+		else
+		{
+			throw new ApplicationException("This template will not work on primary keys with more than one member column.");
+		}
+	}
+	else
+	{
+		throw new ApplicationException("This template will only work on tables with a primary key.");
+	}
+}
+
+public override string GetFileName()
+{
+	return this.GetClassName(this.SourceTable) + "DA" + ".vb";
+}
+
+   public string GetSqlDbType( string nativeType )
+        {
+            string lowerCaseNativeType = nativeType.Trim().ToLower();
+            switch ( lowerCaseNativeType )
+            {
+                case "bigint":
+                    return "BigInt";
+                case "binary":
+                    return "Binary";
+                case "bit":
+                    return "Bit";
+                case "char":
+                    return "Char";
+                case "datetime":
+                    return "DateTime";
+                case "decimal":
+                    return "Decimal";
+                case "float":
+                    return "Float";
+                case "image":
+                    return "Image";
+                case "int":
+                    return "Int";
+                case "money":
+                    return "Money";
+                case "nchar":
+                    return "NChar";
+                case "ntext":
+                    return "NText";
+                case "numeric":
+                    return "Decimal";
+                case "nvarchar":
+                    return "NVarChar";
+                case "real":
+                    return "Real";
+                case "smalldatetime":
+                    return "SmallDateTime";
+                case "smallint":
+                    return "SmallInt";
+                case "smallmoney":
+                    return "SmallMoney";
+                case "sql_variant":
+                    return "Variant";
+                case "sysname":
+                    return "NChar";
+                case "text":
+                    return "Text";
+                case "timestamp":
+                    return "Timestamp";
+                case "tinyint":
+                    return "TinyInt";
+                case "uniqueidentifier":
+                    return "UniqueIdentifier";
+                case "varbinary":
+                    return "VarBinary";
+                case "varchar":
+                    return "VarChar";
+                case "xml":
+                    return "Xml";
+                default:
+                    return nativeType;
+            }
+        }
+</script>

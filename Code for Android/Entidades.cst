@@ -1,0 +1,204 @@
+﻿<%@ Template Language="VB" TargetLanguage="Java"%>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema" Category="Context" Description="Table that the object is based on."%>
+
+<%@ Property Name="Package" Default="SomeValue" Type="System.String" %>
+<%@ Property Name="SampleBooleanProperty" Default="True" Type="System.Boolean" %>
+
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Data" %>
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Data" %>
+<%@ Map Name="SqlCSharp" Src="Sql-CSharp" Description="System to C# Type Map" %>
+<%@ Map Name="DbDataReader" Src="DbType-DataReaderMethod" Description="DbType to DataReader Method Map" %>
+<%@ Map Name="SqlNativeSqlDb" Src="SqlNativeType-SqlDbType" Description="SqlNativeType to SqlDbType Map" %>
+<%@ Map Name="DbTypeCSharp" Src="DbType-CSharp" Description="DbType to CSharp Map" %>
+
+<% Total = SourceTable.Columns.Count %>
+package <%= Package %>;
+
+public class <%= GetClassName(SourceTable) %> {
+    
+    <%-- private <%= GetPrimaryKeyType(SourceTable) %> <%= SourceTable.PrimaryKey.MemberColumns(0).Name.ToString() %>; --%>	
+    <% For Each column As  ColumnSchema In SourceTable.Columns %>
+    <% = GetMemberVariableDeclarationStatement(column) %>
+    <% Next %>
+  
+    <% contadorForeignKeys = 0 %>
+    public <%= GetClassName(SourceTable) %>() {
+        
+    }
+    
+    public <%= GetClassName(SourceTable) %>(<% For Each column As  ColumnSchema In SourceTable.Columns %><%contador = contador + 1 %><% = GetVariableConstructor(column) %><% Next %>) {
+        <% contadorForeignKeys = 0 %>
+        <% For Each column As  ColumnSchema In SourceTable.Columns %>
+        <%contador = contador + 1 %>
+        <% = GetAsignacionConstructor(column) %>
+        <% Next %>
+    }
+    <% contadorForeignKeys = 0 %>
+    <% For Each column As  ColumnSchema In SourceTable.Columns %>
+    <% If column.IsForeignKeyMember Then %>
+    public <%= GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) %> get<%= GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) %>() {
+        return <%= GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) %>;
+    }
+
+    public void set<%= GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) %>(<%= GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) %> <%= GetCamelCaseName(GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable)) %>) {
+        <%= GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) %> = <%= GetCamelCaseName(GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable)) %>;
+    }
+    <%contadorForeignKeys = contadorForeignKeys + 1 %>
+    <% Else %>
+    public <%= GetSqlDbType(column.NativeType) %> get<%= column.Name %>() {
+        return <%= column.Name %>;
+    }
+
+    public void set<%= column.Name %>(<%= GetSqlDbType(column.NativeType) %> <%= GetCamelCaseName(column.Name) %>) {
+        <%= column.Name %> = <%= GetCamelCaseName(column.Name) %>;
+    }
+    
+    <% End If %>
+    <% Next %>
+}
+
+<script runat="template">
+
+Dim Total as Integer = 0
+Dim contador as Integer = 0 
+Dim contadorForeignKeys as Integer = 0 
+
+Public Function GetClassName(ByVal table As TableSchema) As String
+	Return GetNameSingle(table.Name)
+End Function
+
+Public Function GetNameSingle(ByVal name As String) As String
+
+    If name.EndsWith("es") Then
+        Return name.Substring(0, name.Length - 2)
+    End If
+        
+    If name.EndsWith("s") Then
+        Return name.Substring(0, name.Length - 1)
+    End If
+    
+    Return name
+    
+End Function
+
+Public Function GetCamelCaseName(ByVal value As String) As String
+	Return value.Substring(0, 1).ToLower() + value.Substring(1)
+End Function
+
+Public Function GetPrimaryKeyType(ByVal table As TableSchema) As String
+	If Not IsNothing(table.PrimaryKey) Then
+		If table.PrimaryKey.MemberColumns.Count = 1 Then
+			Return GetSqlDbType(table.PrimaryKey.MemberColumns(0).NativeType)
+		Else
+			Throw New ApplicationException("This template will not work on primary keys with more than one member column.")
+		End If
+	Else
+		Throw New ApplicationException("This template will only work on tables with a primary key.")
+	End If
+End Function
+
+Public Function GetMemberVariableDeclarationStatement(ByVal column As ColumnSchema) As String
+    Dim Resultado as String
+    If column.IsForeignKeyMember Then
+        Resultado = "private " + GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) + " " + GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable)
+        contadorForeignKeys = contadorForeignKeys + 1
+    Else
+        Resultado = "private " + GetSqlDbType(column.NativeType) + " " + column.Name
+    End If
+	Return Resultado + ";"
+End Function
+
+Public Function GetVariableConstructor(ByVal column As ColumnSchema) As String
+    Dim Resultado as String
+    If column.IsForeignKeyMember Then
+        Resultado = GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) + " " + GetCamelCaseName(GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable))
+        contadorForeignKeys = contadorForeignKeys + 1
+    Else
+        Resultado = GetSqlDbType(column.NativeType) + " " + GetCamelCaseName(column.Name.ToString)
+    End If
+           
+    If Total = contador Then
+        Return Resultado
+    Else
+	    Return Resultado + ", "
+    End If
+End Function
+
+Public Function GetAsignacionConstructor(ByVal column As ColumnSchema) As String
+    Dim Resultado as String
+    If column.IsForeignKeyMember Then
+        Resultado = "this." + GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable) + " = " + GetCamelCaseName(GetClassName(SourceTable.ForeignKeys(contadorForeignKeys).PrimaryKeyTable))
+        contadorForeignKeys = contadorForeignKeys + 1
+    Else
+        Resultado = "this." + column.Name + " = " + GetCamelCaseName(column.Name.ToString)
+    End If
+
+	Return Resultado + ";"
+
+End Function
+
+Public Function GetSqlDbType(nativeType As String) As String
+	Dim lowerCaseNativeType As String = nativeType.Trim().ToLower()
+	Select Case lowerCaseNativeType
+		Case "bigint"
+			Return "BigInt"
+		Case "binary"
+			Return "Binary"
+		Case "bit"
+			Return "Boolean"
+		Case "char"
+			Return "String"
+		Case "datetime"
+			Return "Timestamp"
+		Case "decimal"
+			Return "Float"
+		Case "float"
+			Return "Float"
+		Case "image"
+			Return "Image"
+		Case "int"
+			Return "Integer"
+		Case "money"
+			Return "Float"
+		Case "nchar"
+			Return "String"
+		Case "ntext"
+			Return "String"
+		Case "numeric"
+			Return "Float"
+		Case "nvarchar"
+			Return "String"
+		Case "real"
+			Return "Float"
+		Case "smalldatetime"
+			Return "Date"
+		Case "smallint"
+			Return "short"
+		Case "smallmoney"
+			Return "Float"
+		Case "sql_variant"
+			Return "Variant"
+		Case "sysname"
+			Return "String"
+		Case "text"
+			Return "String"
+		Case "timestamp"
+			Return "Timestamp"
+		Case "tinyint"
+			Return "short"
+		Case "uniqueidentifier"
+			Return "UniqueIdentifier"
+		Case "varbinary"
+			Return "VarBinary"
+		Case "varchar"
+			Return "String"
+		Case "xml"
+			Return "Xml"
+		Case Else
+			Return nativeType
+	End Select
+End Function
+
+</script>
